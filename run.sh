@@ -5,7 +5,7 @@ TEXT_FILE_NAME="text.txt"
 
 
 run_program () {
-  ./$PROGRAM_NAME $TEXT_FILE_NAME
+  ./$PROGRAM_NAME $TEXT_FILE_NAME --goof
 }
 
 if [ ! -d build ]; then

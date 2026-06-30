@@ -14,7 +14,7 @@ typedef struct {
 typedef struct {
   char * word;
   unsigned int length;
-}token;
+}Token;
 
 #define BUF_SIZE 1024
 

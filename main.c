@@ -54,34 +54,34 @@ bool tokenStrcmp(Token tok1, Token tok2)
   return TOKENSTRNCMP_NOT_EQUAL;
 }
 
-void printToken(Token token)
+void printToken(Token token, FILE * stream)
 {
   for (size_t i = 0; i < token.length; i++)
   {
-    putchar(token.word[i]);
+    fputc(token.word[i], stream);
   }
-  fflush(stdout);
+  fflush(stream);
 }
 
-void printHashTable (hash_index * table, bool verbose, size_t num_to_print)
+void printHashTable (hash_index * table, bool verbose, size_t num_to_print, FILE * stream)
 {
   for (size_t i = 0; i < num_to_print; i++)
   {
     if (verbose)
     {
-      printf("#%4zu: hash: 0x%08X, freq: %3u, key:", i, table[i].hash, table[i].frequency);
+      fprintf(stream, "#%4zu: hash: 0x%08X, freq: %3u, key:", i, table[i].hash, table[i].frequency);
     }
 
     if (!table[i].key.word && verbose)
     {
-      printf("--");
+      fprintf(stream, "--");
     }
     else
     {
-      printToken(table[i].key);
+      printToken(table[i].key, stream);
     }
 
-    putchar('\n');
+    fputc('\n', stream);
   }
 }
 
@@ -133,33 +133,8 @@ void tokenizeBuffer (buffer buf, void ** tokens)
 
 }
 
-int HT_freqCompare(const void * index1, const void * index2)
+void buildHashTable(hash_index * table, Token * tokens, size_t num_tokens)
 {
-  const hash_index * index1_fr = index1;
-  const hash_index * index2_fr = index2;
-  return (int)index2_fr->frequency - (int)index1_fr->frequency;
-}
-
-int main(int argc, char ** argv)
-{
-  arena a = {0};
-  parseCLI(argc, argv, &a);  
-  // Tokenize all of the words in a text file 
-
-  buffer buf;
-  buf.buf_size = BUF_SIZE;
-  buf.buf = calloc(1, buf.buf_size);
-  
-  copyFileToBuf(&buf, a.fp);
-  char * buf_start = buf.buf;
-
-  Token * tokens = dynArrayInit(ARRAY_START_SIZE, sizeof(Token));
-
-  tokenizeBuffer(buf, (void**)&tokens);
-
-  // hash each Tokenized word and check for collisions
-  size_t num_tokens = dynArrayGetArraySize(tokens);
-  hash_index * table = calloc(TABLE_INDICES, sizeof(hash_index));
   for (size_t i = 0; i < num_tokens; i++)
   {
     hash_index temp = {
@@ -203,14 +178,53 @@ int main(int argc, char ** argv)
       if (i == TABLE_INDICES)
       {
         printf("hash table overflow\n");
-        printHashTable(table, true, TABLE_INDICES);
+        printHashTable(table, true, TABLE_INDICES, stdout);
         exit(EXIT_FAILURE);
       }
     }
   }
 
+}
+
+int HT_freqCompare(const void * index1, const void * index2)
+{
+  const hash_index * index1_fr = index1;
+  const hash_index * index2_fr = index2;
+  return (int)index2_fr->frequency - (int)index1_fr->frequency;
+}
+
+int main(int argc, char ** argv)
+{
+  arena a = {0};
+  parseCLI(argc, argv, &a);  
+  // Tokenize all of the words in a text file 
+
+  buffer buf;
+  buf.buf_size = BUF_SIZE;
+  buf.buf = calloc(1, buf.buf_size);
+  
+  copyFileToBuf(&buf, a.fp);
+  char * buf_start = buf.buf;
+
+  Token * tokens = dynArrayInit(ARRAY_START_SIZE, sizeof(Token));
+
+  tokenizeBuffer(buf, (void**)&tokens);
+
+  // hash each Tokenized word and check for collisions
+  size_t num_tokens = dynArrayGetArraySize(tokens);
+  hash_index * table = calloc(TABLE_INDICES, sizeof(hash_index));
+  buildHashTable(table, tokens, num_tokens);
+
+  if (a.output_presorted_hash_table)
+  {
+    FILE * jared_fp = fopen("goof.txt", "w");
+    assert(jared_fp);
+    printHashTable(table, false, TABLE_INDICES, jared_fp);
+    fclose(jared_fp);
+  }
+
   qsort(table, TABLE_INDICES, sizeof(hash_index), HT_freqCompare);
-  printHashTable(table, true, 100);
+  printHashTable(table, true, 100, stdout);
 
   dynArrayDestroy((void**)&tokens);
   free(buf_start);

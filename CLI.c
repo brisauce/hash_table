@@ -24,7 +24,11 @@ void parseCLI(int argc, char ** argv, arena * a)
       printHelp();
       exit(EXIT_SUCCESS);
     }
-    else 
+    else if (!strcmp("--goof", argv[i])) 
+    {
+      a->output_presorted_hash_table = true;
+    }
+    else
     {
       FILE * fp = fopen(argv[i], "r");
       if (!fp)
@@ -34,11 +38,11 @@ void parseCLI(int argc, char ** argv, arena * a)
       }
       a->fp = fp;
     }
+  }
 
-    if (!a->fp)
-    {
-      puts("No file was inputted! Exiting");
-      exit(EXIT_FAILURE);
-    }
+  if (!a->fp)
+  {
+    puts("No file was inputted! Exiting");
+    exit(EXIT_FAILURE);
   }
 }
