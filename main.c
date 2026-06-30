@@ -2,7 +2,7 @@
  *  The purpose of this project is to implement a hash table to bucket a long text file.
  *  The hash table should:
  *  - Use a simple but effective hash function (tsoding made a good implementation) to create 
- *    a table of entries which are data structure which includes the word (the key) and number of 
+ *    a table of entries which are data structures which includes the word (the key) and number of 
  *    occurences of the word in the text file
  *  - handle collisions when two different words hash to the same index on the table
  *  - handle when all available spaces in the hash table are occupied
@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <stdint.h>
 
 #include "build/hash_tableConfig.h"
 #include "file_to_buf.h"
@@ -18,23 +19,70 @@
 #include "arena.h"
 #include "dynamic_array.h"
 
-#define ARRAY_START_SIZE 400
-#define TABLE_INDICES 1000
-
 typedef struct {
-  unsigned int hash;
+  uint32_t hash;
   Token key;
   unsigned int frequency;
 } hash_index;
 
+#define TOKENSTRNCMP_NOT_EQUAL 1
+#define TOKENSTRNCMP_EQUAL 0
+
+#define ARRAY_START_SIZE 400
+
+#define TABLE_INDICES 2000
+
+bool tokenStrcmp(Token tok1, Token tok2)
+{
+  //  trying to make the return value like strcmp 
+  //  like aforementioned library function, but friendly to tokens
+  //  returns nonzero if incompatible strings
+  size_t i = 0;
+  for (; i < tok1.length && i < tok2.length; i++)
+  {
+    if (tok1.word[i] != tok2.word[i])
+    {
+      return TOKENSTRNCMP_NOT_EQUAL; 
+    }
+  }
+
+  if (i == tok1.length && i == tok2.length)
+  {
+    return TOKENSTRNCMP_EQUAL;
+  }
+
+  return TOKENSTRNCMP_NOT_EQUAL;
+}
 
 void printToken(Token token)
 {
   for (size_t i = 0; i < token.length; i++)
   {
-    putc(token.word[i], stdout);
+    putchar(token.word[i]);
   }
   fflush(stdout);
+}
+
+void printHashTable (hash_index * table, bool verbose, size_t num_to_print)
+{
+  for (size_t i = 0; i < num_to_print; i++)
+  {
+    if (verbose)
+    {
+      printf("#%4zu: hash: 0x%08X, freq: %3u, key:", i, table[i].hash, table[i].frequency);
+    }
+
+    if (!table[i].key.word && verbose)
+    {
+      printf("--");
+    }
+    else
+    {
+      printToken(table[i].key);
+    }
+
+    putchar('\n');
+  }
 }
 
 unsigned int hashToken(Token token)
@@ -47,23 +95,8 @@ unsigned int hashToken(Token token)
   return retval;
 }
 
-
-int main(int argc, char ** argv)
+void tokenizeBuffer (buffer buf, void ** tokens)
 {
-
-  arena a = {0};
-  parseCLI(argc, argv, &a);  
-  // Tokenize all of the words in a text file 
-
-  buffer buf;
-  buf.buf_size = BUF_SIZE;
-  buf.buf = calloc(1, buf.buf_size);
-  
-  copyFileToBuf(&buf, a.fp);
-  char * buf_start = buf.buf;
-
-  Token * tokens = dynArrayInit(ARRAY_START_SIZE, sizeof(Token));
-
   while (*buf.buf != '\0')
   {
     //  Tokenize the text file, splitting it into tokens by spaces and newlines
@@ -94,10 +127,35 @@ int main(int argc, char ** argv)
 
     if (temp.word && temp.length)
     {
-      dynArrayAdd((void **)&tokens, &temp);
+      dynArrayAdd(tokens, &temp);
     }
   }
 
+}
+
+int HT_freqCompare(const void * index1, const void * index2)
+{
+  const hash_index * index1_fr = index1;
+  const hash_index * index2_fr = index2;
+  return (int)index2_fr->frequency - (int)index1_fr->frequency;
+}
+
+int main(int argc, char ** argv)
+{
+  arena a = {0};
+  parseCLI(argc, argv, &a);  
+  // Tokenize all of the words in a text file 
+
+  buffer buf;
+  buf.buf_size = BUF_SIZE;
+  buf.buf = calloc(1, buf.buf_size);
+  
+  copyFileToBuf(&buf, a.fp);
+  char * buf_start = buf.buf;
+
+  Token * tokens = dynArrayInit(ARRAY_START_SIZE, sizeof(Token));
+
+  tokenizeBuffer(buf, (void**)&tokens);
 
   // hash each Tokenized word and check for collisions
   size_t num_tokens = dynArrayGetArraySize(tokens);
@@ -105,36 +163,56 @@ int main(int argc, char ** argv)
   for (size_t i = 0; i < num_tokens; i++)
   {
     hash_index temp = {
-      .hash = hashToken(tokens[i]) % TABLE_INDICES,
+      .hash = hashToken(tokens[i]),
       .key = tokens[i]
     };
 
-    if (table[temp.hash].frequency == 0)
+    unsigned int index = temp.hash % TABLE_INDICES;
+
+    if (table[index].frequency == 0)
     {
-      table[temp.hash] = temp;
+      table[index].key = temp.key;
+      table[index].hash = temp.hash;
+      table[index].frequency = 1;
+    }
+    else if (!tokenStrcmp(temp.key, table[index].key))
+    {
+      table[index].frequency++;
     }
     else
     {
-      if (!strncmp(temp.key.word, table[temp.hash].key.word, temp.key.length))
+      //  collision handling
+      size_t i = 1; //  start chacking the one immediately after the hash collision 
+      for (; i < TABLE_INDICES; i++)
       {
-        table[temp.hash] = temp;
-      }
-      else 
-      {
-        //  collision handling
-        for (size_t i = 1; i < TABLE_INDICES; i++)
+        size_t wraparound_index = (index + i) % TABLE_INDICES;
+        if (table[wraparound_index].frequency == 0)
         {
-          if (table[temp.hash + i].frequency == 0)
-          {
-            table[temp.hash + i] = temp; 
-          }
+          table[wraparound_index].key = temp.key;
+          table[wraparound_index].hash = temp.hash;
+          table[wraparound_index].frequency = 1;
+          break;
         }
+        else if (!tokenStrcmp(temp.key, table[wraparound_index].key))
+        {
+          table[wraparound_index].frequency++;
+          break;
+        }
+      }
+
+      if (i == TABLE_INDICES)
+      {
+        printf("hash table overflow\n");
+        printHashTable(table, true, TABLE_INDICES);
+        exit(EXIT_FAILURE);
       }
     }
   }
+
+  qsort(table, TABLE_INDICES, sizeof(hash_index), HT_freqCompare);
+  printHashTable(table, true, 100);
 
   dynArrayDestroy((void**)&tokens);
   free(buf_start);
   free(table);
 }
-
