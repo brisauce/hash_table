@@ -1,5 +1,6 @@
 #ifndef PROJECT_CONFIG_H
 #define PROJECT_CONFIG_H
+
 #define hash_table_VERSION_MAJOR ${hash_table_VERSION_MAJOR}
 #define hash_table_VERSION_MINOR ${hash_table_VERSION_MINOR}
 #define hash_table_VERSION_PATCH ${hash_table_VERSION_PATCH}

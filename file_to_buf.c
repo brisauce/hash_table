@@ -10,6 +10,7 @@ void copyFileToBuf(buffer * buff, FILE * source_fp)
   //  read data in 
   //  move pointer to next empty space
   //  check if reading more in will cause an overflow and if so, reallocate
+  //  set the read size to the remaining size of the buffer
   //  repeat
   size_t read_size = buff->buf_size;
   size_t next_empty_space = 0;
@@ -23,6 +24,7 @@ void copyFileToBuf(buffer * buff, FILE * source_fp)
       buff->buf = realloc(buff->buf, buff->buf_size * sizeof(char));
       assert(buff->buf);
     }
+    read_size = buff->buf_size - next_empty_space;
   }
 }
 
