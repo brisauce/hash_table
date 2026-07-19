@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "dynamic_array.h"
+#define DEREF_VOID_PTR_PTR *(void **)
 
 
 typedef struct {
@@ -35,12 +36,12 @@ void * dynArrayInit(size_t num_items, size_t item_size)
   return (dynArrayHeader *) retval + 1;
 }
 
-void dynArrayAdd(void ** array_ptr, void * item)
+void dynArrayAdd(void * array, void * item)
 {
   //  Move the pointer to where the header data is, i.e. one header-sized amount of data before
   //  the array
-  void * array = *array_ptr;
-  dynArrayHeader * header = (dynArrayHeader *) array - 1;
+  dynArrayHeader * header = *(void **) array;
+  header --;
 
   if (header->w_pointer == header->capacity)
   {
@@ -49,21 +50,21 @@ void dynArrayAdd(void ** array_ptr, void * item)
                           sizeof(dynArrayHeader)); 
     assert(temp);
     header = temp;
-    *array_ptr = (dynArrayHeader *) header + 1;
+    (DEREF_VOID_PTR_PTR array) = (dynArrayHeader *) header + 1;
     array = (dynArrayHeader *) header + 1;
   } 
 
-  void * current_element = array + (header->w_pointer * header->unit_size);
+  void * current_element = (DEREF_VOID_PTR_PTR array) + (header->w_pointer * header->unit_size);
 
   memcpy(current_element, item, header->unit_size);
   header->w_pointer ++;
 }
 
-void dynArrayDestroy (void ** array)
+void dynArrayDestroy (void * array)
 {
-  dynArrayHeader * a = *array;
+  dynArrayHeader * a = *(void **)array;
   free(a - 1);
-  *array = NULL;
+  (DEREF_VOID_PTR_PTR array) = NULL;
 }
 
 size_t dynArrayGetArraySize(void * array)

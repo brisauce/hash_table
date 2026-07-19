@@ -2,12 +2,12 @@ cmake_minimum_required(VERSION 3.22.1)
 
 project(
 hash_table 
-VERSION 0.1.2
+VERSION 0.1.3
 LANGUAGES C
 )
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-add_executable(${PROJECT_NAME} main.c file_to_buf.c CLI.c dynamic_array.c)
+add_executable(${PROJECT_NAME} main.c file_to_buf.c CLI.c dynamic_array.c tokenizer.c)
 configure_file(${PROJECT_NAME}Config.h.in ${PROJECT_NAME}Config.h)
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 

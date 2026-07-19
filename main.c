@@ -1,6 +1,6 @@
 /*
  *  The purpose of this project is to implement a hash table to bucket a long text file.
- *  The hash table should:
+*  The hash table should:
  *  - Use a simple but effective hash function (tsoding made a good implementation) to create 
  *    a table of entries which are data structures which includes the word (the key) and number of 
  *    occurences of the word in the text file
@@ -18,6 +18,7 @@
 #include "CLI.h"
 #include "arena.h"
 #include "dynamic_array.h"
+#include "tokenizer.h"
 
 typedef struct {
   uint32_t hash;
@@ -25,43 +26,9 @@ typedef struct {
   unsigned int frequency;
 } hash_index;
 
-#define TOKENSTRNCMP_NOT_EQUAL 1
-#define TOKENSTRNCMP_EQUAL 0
-
 #define ARRAY_START_SIZE 400
 
 #define TABLE_INDICES 2000
-
-bool tokenStrcmp(Token tok1, Token tok2)
-{
-  //  trying to make the return value like strcmp 
-  //  like aforementioned library function, but friendly to tokens
-  //  returns nonzero if incompatible strings
-  size_t i = 0;
-  for (; i < tok1.length && i < tok2.length; i++)
-  {
-    if (tok1.word[i] != tok2.word[i])
-    {
-      return TOKENSTRNCMP_NOT_EQUAL; 
-    }
-  }
-
-  if (i == tok1.length && i == tok2.length)
-  {
-    return TOKENSTRNCMP_EQUAL;
-  }
-
-  return TOKENSTRNCMP_NOT_EQUAL;
-}
-
-void printToken(Token token, FILE * stream)
-{
-  for (size_t i = 0; i < token.length; i++)
-  {
-    fputc(token.word[i], stream);
-  }
-  fflush(stream);
-}
 
 void printHashTable (hash_index * table, bool verbose, size_t num_to_print, FILE * stream)
 {
@@ -93,44 +60,6 @@ unsigned int hashToken(Token token)
     retval = retval * 31 + token.word[i];
   }
   return retval;
-}
-
-void tokenizeBuffer (buffer buf, void ** tokens)
-{
-  while (*buf.buf != '\0')
-  {
-    //  Tokenize the text file, splitting it into tokens by spaces and newlines
-    Token temp = {0};
-    for (;*buf.buf != '\0'; buf.buf++)
-    {
-      if (*buf.buf == ' ' || *buf.buf == '\n')
-      {
-        if (!temp.word)
-        {
-          continue;
-        }
-        else
-        {
-          temp.length = buf.buf - temp.word;
-          buf.buf++;
-          break;
-        }
-      }
-      else
-      {
-        if (!temp.word)
-        {
-          temp.word = buf.buf;
-        }
-      }
-    }
-
-    if (temp.word && temp.length)
-    {
-      dynArrayAdd(tokens, &temp);
-    }
-  }
-
 }
 
 void buildHashTable(hash_index * table, Token * tokens, size_t num_tokens)
@@ -183,7 +112,6 @@ void buildHashTable(hash_index * table, Token * tokens, size_t num_tokens)
       }
     }
   }
-
 }
 
 int HT_freqCompare(const void * index1, const void * index2)
@@ -208,7 +136,7 @@ int main(int argc, char ** argv)
 
   Token * tokens = dynArrayInit(ARRAY_START_SIZE, sizeof(Token));
 
-  tokenizeBuffer(buf, (void**)&tokens);
+  tokenizeBuffer(buf, &tokens);
 
   // hash each Tokenized word and check for collisions
   size_t num_tokens = dynArrayGetArraySize(tokens);
@@ -226,7 +154,7 @@ int main(int argc, char ** argv)
   qsort(table, TABLE_INDICES, sizeof(hash_index), HT_freqCompare);
   printHashTable(table, true, 100, stdout);
 
-  dynArrayDestroy((void**)&tokens);
+  dynArrayDestroy(&tokens);
   free(buf_start);
   free(table);
 }

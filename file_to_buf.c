@@ -4,6 +4,7 @@
 #include <assert.h>
 
 #include "build/hash_tableConfig.h"
+#include "file_to_buf.h"
 
 void copyFileToBuf(buffer * buff, FILE * source_fp)
 {
